@@ -89,7 +89,6 @@ def retrieveRSAKeys():
     
     
 def myRSAEncrypt():
-    
     #Load Encryption Information
     encrypInfo = myFileEncryptMAC()
     
@@ -104,8 +103,25 @@ def myRSAEncrypt():
             mgf = paddings.MGF1(algorithm = hashes.SHA256()),
             algorithm = hashes.SHA256(),
             label = None))
-    print("Complete")
-    return RSA_CipherText, encrypInfo[0], encrypInfo[1], encrypInfo[5]
+    print("RSA Encryption Complete")
+    return RSA_CipherText, encrypInfo[0], encrypInfo[1], encrypInfo[2], ext
+
+
+def myRSADecrypt(RSA_CipherText, C, IV, tag, ext):
+    #Load from RSA Keys from File Path
+    RSA_KeyInfo = retrieveRSAKeys()
+    publicKey = RSA_KeyInfo[0]
+    privateKey = RSA_KeyInfo[1]
+    
+    #Decrypting Key Variable
+    RSA_PlainText = privateKey.decrypt(
+            RSA_CipherText,
+            paddings.OAEP(
+            mgf=paddings.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None))
+    print("RSA Decryption Complete")
+    return RSA_PlainText
 
 
 def read(filepath):
@@ -198,7 +214,9 @@ def myFileDecrypt(encrypInfo):
     dec.write(decryptedSet)
 
 def main():
-    myRSAEncrypt()
+    RSA_Enc_info = myRSAEncrypt()
+    RSA_Dec_info = myRSADecrypt(RSA_Enc_info[0],RSA_Enc_info[1],RSA_Enc_info[2],RSA_Enc_info[3],RSA_Enc_info[4])
+    #print(RSA_Enc_info)
     '''
     encrypInfo = None
     cont = True
