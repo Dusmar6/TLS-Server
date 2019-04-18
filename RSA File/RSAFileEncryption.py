@@ -26,19 +26,19 @@ def menu():
     print("1. Encrypt")
     print("2. Decrypt")
     print("3. Exit")
-    
-    '''
-    #Generate key
-    #public_exponent = Fermat Prime # to use as exponent for new key. Recommended: 65537
-    #key_size = Bit length of key
-    #backend = Implements RSABackend
-    '''
+
 def retrieveRSAKeys():
+    #Check to see if PEM files exists
     PrivateKeyExists = path.isfile(RSA_privateKey_filepath)
     PublicKeyExists = path.isfile(RSA_publicKey_filepath)
     
+    #Retrieve the PEM files if they do exist and return them
     if PrivateKeyExists and PublicKeyExists:
         print("[File was found in path - Keys have been loaded]")
+        
+        #Using Deserialization to open a stream of bytes from file as an object.
+        #key_file.read() is reading the data from the file and passing it in as the PEM encoded data
+        #password, if used is to decrypt the data. 
         with open(RSA_privateKey_filepath, "rb") as key_file:
             privateKey = serialization.load_pem_private_key(key_file.read(),
                                                              password=None,
@@ -46,19 +46,26 @@ def retrieveRSAKeys():
         with open(RSA_publicKey_filepath, "rb") as key_file:
             publicKey = serialization.load_pem_public_key(key_file.read(),
                                                              backend=default_backend())    
-            
         return publicKey, privateKey
     
-    else:
+    else: #If they do not exist, Create the files
         print("[File was not found in path - Generating new keys]")
-        #Generate Private Key
+        #Generate Private KeyGenerate key
+        #public_exponent = Biggest Fermat Prime # using conjecture 2^2n +1 to use as exponent for new key. Recommended: 65537
+        #If p is prime, then a^p is congruent to a modulo p - Needed for the proof of correctness in RSA.
+        #key_size = Bit length of key
+        #backend = Implements RSABackend
         privateKey = rsa.generate_private_key(public_exponent = 65537,
                                               key_size = 4096,
                                               backend = default_backend())
         #Encode Private Key into PEM File
+        #Using Serialization to convert object to a stream of bytes to store as a file.
+        #TraditionalOpenSSL using PKCS#1 Format
         pem = privateKey.private_bytes(encoding = serialization.Encoding.PEM,
                                        format = serialization.PrivateFormat.TraditionalOpenSSL,
                                        encryption_algorithm = serialization.NoEncryption())
+        
+        #Returns list of lines in private key, breaking at line boundries
         pem.splitlines()[0]
         
         #Open File Path for Private Key
@@ -72,8 +79,11 @@ def retrieveRSAKeys():
         #Generate Public Key
         publicKey = privateKey.public_key()
         #Enclode Public Key into PEM file
+        #SubjectPublicKeyInfo saves public key as string so it can be read
         pem = publicKey.public_bytes(encoding = serialization.Encoding.PEM,
                                      format = serialization.PublicFormat.SubjectPublicKeyInfo)
+        
+        #Returns list of lines in private key, breaking at line boundries
         pem.splitlines()[0]
         
         #Open File Path for Private Key
@@ -98,7 +108,8 @@ def myRSAEncrypt():
     privateKey = RSA_KeyInfo[1]
     
     #Encrypting Key Variable
-    key = encrypInfo[3] + encrypInfo[4]
+    #OAEP through SHA256 hash and MGF1 hash, which takes arbitray to fixed and arbitrary output. 
+    key = encrypInfo[3] + encrypInfo[4] #concatinate the keys
     RSA_CipherText = publicKey.encrypt(key, paddings.OAEP(
             mgf = paddings.MGF1(algorithm = hashes.SHA256()),
             algorithm = hashes.SHA256(),
@@ -215,6 +226,7 @@ def myFileDecrypt(encrypInfo):
 
 def main():
     RSA_Enc_info = myRSAEncrypt()
+    print()
     RSA_Dec_info = myRSADecrypt(RSA_Enc_info[0],RSA_Enc_info[1],RSA_Enc_info[2],RSA_Enc_info[3],RSA_Enc_info[4])
     #print(RSA_Enc_info)
     '''
