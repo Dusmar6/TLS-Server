@@ -10,6 +10,7 @@ from os import urandom
 from os import path
 import os.path
 
+import base64
 import json
 
 directory = "C:\\Users\\dusma\\Desktop\\CryptoFiles\\"
@@ -103,38 +104,46 @@ def myRSAEncrypt(filepath):
     publicKey = RSA_KeyInfo[0]
     privateKey = RSA_KeyInfo[1]
     
-    #Encrypting Key Variable
-    key = encrypInfo[3] + encrypInfo[4] #key + hkey concatinated
-
+    #concatenating keys
+    key = encrypInfo[3] + encrypInfo[4]
+    
+    #encrypt key variable
     RSA_CipherText = publicKey.encrypt(key, paddings.OAEP(
             mgf = paddings.MGF1(algorithm = hashes.SHA256()),
             algorithm = hashes.SHA256(),
             label = None))
     
-    #new enc file path
+    #naming encrypted file
     temp = filepath[0:-4]
     encDest = temp + "[enc].json"
     
+    #encode for JSON
+    encodedBytes = str(RSA_CipherText, 'cp437')
+  
     #write json file
     with open(encDest,"w") as write_file:
-        json.dump(list(RSA_CipherText), write_file)
-    #directly dumping a byte array throws an error (bytes are unserializable with JSON), so we have to dump a list
-    #if we were directly decrypting the file, we would have to convert back from list to byte array 
-    #but for now we are decrypting using the returned ciphertext
-        
+        json.dump(encodedBytes, write_file)
+
     #removes og file
     os.remove(filepath)
     
     print("RSA Encryption Complete")
-    return RSA_CipherText, encrypInfo[0], encrypInfo[1], encrypInfo[2], encrypInfo[5], filepath
+    return RSA_CipherText, encrypInfo[0], encrypInfo[1], encrypInfo[2], encrypInfo[5], encDest
 
 
-
-def myRSADecrypt(RSA_CipherText, C, IV, tag, ext, filepath):
+def myRSADecrypt(C, IV, tag, ext, filepath):
+    
     #Load from RSA Keys from File Path
     RSA_KeyInfo = retrieveRSAKeys()
     publicKey = RSA_KeyInfo[0]
     privateKey = RSA_KeyInfo[1]
+    
+    #load JSON file
+    with open(filepath) as f:
+        encodedBytes = json.load(f)
+        
+    #decoding bytes
+    RSA_CipherText = bytes(encodedBytes, 'cp437')
     
     #Decrypting Key Variable
     RSA_PlainText = privateKey.decrypt(
@@ -144,18 +153,22 @@ def myRSADecrypt(RSA_CipherText, C, IV, tag, ext, filepath):
             algorithm=hashes.SHA256(),
             label=None))
     
+    #de-concatenate the key
+    key = RSA_PlainText[0:keyLen]
+    hkey = RSA_PlainText[keyLen:]
+    
+    #run cipher decryption
+    m = myDecryptMAC(C, IV, tag, key, hkey)
+    
     #naming decrypted file
-    decDest = filepath[0:-4] + "[dec]" + filepath[-4:]
+    decDest = filepath[0:-10] + "[dec]" + ext
     
     #writing decrypted file
     dec = open(decDest, "wb")
-    dec.write(RSA_PlainText )
+    dec.write(m)
     
     print("RSA Decryption Complete")
     return RSA_PlainText
-
-
-
 
 def read(filepath):
     return open(filepath, "rb").read()
@@ -172,10 +185,6 @@ def myEncryptMAC(file, key, hkey):
     hashfunc = hmac.HMAC(hkey, hashes.SHA256(), backend = default_backend())
     tag = hashfunc.update(cipherText)
     tag = hashfunc.finalize()
-    '''
-    enc = open(encPath, "wb")
-    enc.write(cipherText)
-    '''
     return cipherText, iv, tag
 
 def myFileEncryptMAC(filepath):
@@ -197,10 +206,10 @@ def myFileEncryptMAC():
     return encryptedSet[0], encryptedSet[1], encryptedSet[2], key, hkey, ext
 '''
 
-def myDecryptMAC(file, key, iv, tag, hkey):
+def myDecryptMAC(C, iv, tag, key, hkey):
     backend = default_backend()
     hashfunc = hmac.HMAC(hkey, hashes.SHA256(), backend = default_backend())
-    revMes = hashfunc.update(file)
+    revMes = hashfunc.update(C)
     revMes = hashfunc.verify(tag)
     if(revMes == None):
         print("[Verification has proceeded successfully]")
@@ -208,7 +217,7 @@ def myDecryptMAC(file, key, iv, tag, hkey):
         print("[Error: " + revMes + "]")
     decryption = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
     decryptor = decryption.decryptor()
-    paddedFile = decryptor.update(file) + decryptor.finalize()
+    paddedFile = decryptor.update(C) + decryptor.finalize()
     unpadder = padding.PKCS7(padLen).unpadder()
     plainText = unpadder.update(paddedFile)
     plainText += unpadder.finalize()
@@ -221,7 +230,7 @@ def myFileDecryptMAC(encrypInfo):
     dec.write(decryptedSet)
     
 ### BELOW AES METHOD WITHOUT HASH
-
+'''
 def myEncrypt(file, key):
     iv = urandom(ivLen)
     backend = default_backend()
@@ -258,24 +267,24 @@ def myFileDecrypt(encrypInfo):
     decryptedSet = myDecrypt(file, encrypInfo[2],encrypInfo[1])
     dec = open(decPath, "wb")
     dec.write(decryptedSet)
+'''
 
 def main():
     
-    for filename in os.listdir(directory):
+    for root, dirs, files in os.walk(directory):
         
-        filepath = directory + filename
-        
-        RSA_Enc_info = myRSAEncrypt(filepath)
-        RSA_Dec_info = myRSADecrypt(RSA_Enc_info[0],RSA_Enc_info[1],RSA_Enc_info[2],RSA_Enc_info[3],RSA_Enc_info[4],RSA_Enc_info[5])
+        for file in files:
+            filepath = (os.path.join(root, file))
+            
+            RSA_Enc_info = myRSAEncrypt(filepath)
+            RSA_Dec_info = myRSADecrypt(RSA_Enc_info[1],RSA_Enc_info[2],RSA_Enc_info[3],RSA_Enc_info[4], RSA_Enc_info[5])
          
 
     
     
     
-    
-    
-    #print(RSA_Enc_info)
-    '''
+'''
+
     encrypInfo = None
     cont = True
     while cont:
