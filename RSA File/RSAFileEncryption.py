@@ -92,8 +92,6 @@ def retrieveRSAKeys():
         return publicKey, privateKey
         
     
-    
-    
 def myRSAEncrypt(filepath):
     
     #Load Encryption Information
@@ -113,38 +111,57 @@ def myRSAEncrypt(filepath):
             algorithm = hashes.SHA256(),
             label = None))
     
+    #rename encryp info
+    C = encrypInfo[0]
+    IV = encrypInfo[1]
+    tag = encrypInfo[2]
+    ext = encrypInfo[5]
+    
     #naming encrypted file
     temp = filepath[0:-4]
     encDest = temp + "[enc].json"
     
-    #encode for JSON
-    encodedBytes = str(RSA_CipherText, 'cp437')
+    #formatting and encoding data for JSON file
+    data = {}
+    data['file'] = []
+    data['file'].append({
+        'RSA_CipherText': str(RSA_CipherText, 'cp437'),
+        'C': str(C, 'cp437'),
+        'IV': str(IV, 'cp437'),
+        'tag': str(tag, 'cp437'),
+        'ext': ext
+            })
+    
   
-    #write json file
+    #write data to json file
     with open(encDest,"w") as write_file:
-        json.dump(encodedBytes, write_file)
+        json.dump(data, write_file)
 
     #removes og file
     os.remove(filepath)
     
     print("RSA Encryption Complete")
-    return RSA_CipherText, encrypInfo[0], encrypInfo[1], encrypInfo[2], encrypInfo[5], encDest
+    return encDest
 
 
-def myRSADecrypt(C, IV, tag, ext, filepath):
+def myRSADecrypt(filepath):
     
     #Load from RSA Keys from File Path
     RSA_KeyInfo = retrieveRSAKeys()
     publicKey = RSA_KeyInfo[0]
     privateKey = RSA_KeyInfo[1]
     
-    #load JSON file
-    with open(filepath) as f:
-        encodedBytes = json.load(f)
-        
-    #decoding bytes
-    RSA_CipherText = bytes(encodedBytes, 'cp437')
     
+    #load data from JSON file
+    with open(filepath) as json_file:
+        data = json.load(json_file)
+        for f in data['file']:
+            RSA_CipherText = bytes(f['RSA_CipherText'], 'cp437')
+            C = bytes(f['C'], 'cp437')
+            IV = bytes(f['IV'], 'cp437')
+            tag = bytes(f['tag'], 'cp437')
+            ext = f['ext']
+
     #Decrypting Key Variable
     RSA_PlainText = privateKey.decrypt(
             RSA_CipherText,
@@ -153,11 +170,11 @@ def myRSADecrypt(C, IV, tag, ext, filepath):
             algorithm=hashes.SHA256(),
             label=None))
     
-    #de-concatenate the key
+    #de-concatenate the keys
     key = RSA_PlainText[0:keyLen]
     hkey = RSA_PlainText[keyLen:]
     
-    #run cipher decryption
+    #run file decryption
     m = myDecryptMAC(C, IV, tag, key, hkey)
     
     #naming decrypted file
@@ -169,6 +186,7 @@ def myRSADecrypt(C, IV, tag, ext, filepath):
     
     print("RSA Decryption Complete")
     return RSA_PlainText
+
 
 def read(filepath):
     return open(filepath, "rb").read()
@@ -270,14 +288,17 @@ def myFileDecrypt(encrypInfo):
 '''
 
 def main():
+    
     #file walking
     for root, dirs, files in os.walk(directory):
-        
         for file in files:
             filepath = (os.path.join(root, file))
             
-            RSA_Enc_info = myRSAEncrypt(filepath)
-            RSA_Dec_info = myRSADecrypt(RSA_Enc_info[1],RSA_Enc_info[2],RSA_Enc_info[3],RSA_Enc_info[4], RSA_Enc_info[5])
+            #encrypt file
+            encFilepath = myRSAEncrypt(filepath)
+            
+            #decrypt file
+            myRSADecrypt(encFilepath)
          
 
     
