@@ -184,6 +184,9 @@ def myRSADecrypt(filepath):
     dec = open(decDest, "wb")
     dec.write(m)
     
+    #removes og file
+    os.remove(filepath)
+    
     print("RSA Decryption Complete")
     return RSA_PlainText
 
@@ -295,13 +298,18 @@ def main():
             filepath = (os.path.join(root, file))
             
             #encrypt file
-            encFilepath = myRSAEncrypt(filepath)
+            myRSAEncrypt(filepath)
+            
+            
+    enter = input("Press enter to decrypt")
+    
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            filepath = (os.path.join(root, file))
             
             #decrypt file
-            myRSADecrypt(encFilepath)
+            myRSADecrypt(filepath)
          
-
-    
     
     
 '''
